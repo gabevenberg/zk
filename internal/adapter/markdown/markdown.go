@@ -228,12 +228,19 @@ func (p *Parser) parseLinks(root ast.Node, source []byte) ([]core.Link, error) {
 				p.logger.Err(err)
 				if href != "" {
 					snippet, snStart, snEnd := extractLines(n, source)
+					pos := GetLinkPosition(link, source)
+					lnStart, lnEnd := -1, -1
+					if pos != nil {
+						lnStart, lnEnd = pos.Start, pos.End
+					}
 					links = append(links, core.Link{
 						Title:        string(link.Text(source)),
 						Href:         href,
 						Type:         core.LinkTypeMarkdown,
 						Rels:         core.LinkRels(strings.Fields(string(link.Title))...),
 						IsExternal:   strutil.IsURL(href),
+						LinkStart:    lnStart,
+						LinkEnd:      lnEnd,
 						Snippet:      snippet,
 						SnippetStart: snStart,
 						SnippetEnd:   snEnd,
@@ -249,6 +256,8 @@ func (p *Parser) parseLinks(root ast.Node, source []byte) ([]core.Link, error) {
 						Type:         core.LinkTypeImplicit,
 						Rels:         []core.LinkRelation{},
 						IsExternal:   true,
+						LinkStart:    -1,
+						LinkEnd:      -1,
 						Snippet:      snippet,
 						SnippetStart: snStart,
 						SnippetEnd:   snEnd,
@@ -265,6 +274,8 @@ func (p *Parser) parseLinks(root ast.Node, source []byte) ([]core.Link, error) {
 						Type:         core.LinkTypeWikiLink,
 						Rels:         core.LinkRels(strings.Fields(string(link.Title))...),
 						IsExternal:   strutil.IsURL(href),
+						LinkStart:    link.StartOffset,
+						LinkEnd:      link.EndOffset,
 						Snippet:      snippet,
 						SnippetStart: snStart,
 						SnippetEnd:   snEnd,
@@ -285,6 +296,14 @@ func (p *Parser) parseFrontmatterLinks(frontmatter frontmatter) ([]core.Link, er
 			text.NewReader([]byte(valStr)),
 		)
 		fmLinks, err := p.parseLinks(fmRoot, []byte(valStr))
+		// The range values that parseLinks gives us are relative to the start of the YAML string,
+		// and we don't know the document byte offset from the start of the string,
+		// leaving the true byte offsets of the link unknowable (for now.)
+		for i, _ := range fmLinks {
+			fmLinks[i].LinkStart = -1
+			fmLinks[i].LinkEnd = -1
+
+		}
 		if err != nil {
 			return nil, err
 		}

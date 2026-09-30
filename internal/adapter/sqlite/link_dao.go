@@ -159,11 +159,16 @@ func (d *LinkDAO) scanLink(row RowScanner) (*core.ResolvedLink, error) {
 			TargetID:   core.NoteID(targetID.Int64),
 			TargetPath: targetPath.String,
 			Link: core.Link{
-				Title:        title,
-				Href:         href,
-				Type:         core.LinkType(linkType),
-				IsExternal:   external,
-				Rels:         core.LinkRels(parseListFromNullString(rels)...),
+				Title:      title,
+				Href:       href,
+				Type:       core.LinkType(linkType),
+				IsExternal: external,
+				Rels:       core.LinkRels(parseListFromNullString(rels)...),
+				// TODO: we should eventually add this to the index,
+				// when something actually uses a LinkStart from the index.
+				// Currently LinkStart and LinkEnd are only used straight from the parser.
+				LinkStart:    -1,
+				LinkEnd:      -1,
 				Snippet:      snippet,
 				SnippetStart: snippetStart,
 				SnippetEnd:   snippetEnd,

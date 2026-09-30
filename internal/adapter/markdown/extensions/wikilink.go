@@ -70,15 +70,17 @@ func (p *wlParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) 
 	}
 
 	for i, char := range string(line) {
-		endPos = i
-
 		if closed {
 			// Supports trailing hash syntax for Neuron's Folgezettel, e.g. [[id]]#
 			if char == '#' {
 				rel = core.LinkRelationDown
+				endPos++
 			}
 			break
 		}
+		// Needs to be after the break,
+		// otherwise endpos points to a different place depending on if the links end is at the line end.
+		endPos = i
 
 		if !opened {
 			switch char {
@@ -132,6 +134,8 @@ func (p *wlParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) 
 		}
 		appendRune(char)
 	}
+	//make endPos an exclusive range, rather than inclusive.
+	endPos++
 
 	if !closed || len(href) == 0 {
 		return nil

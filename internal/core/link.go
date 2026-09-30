@@ -20,6 +20,13 @@ type Link struct {
 	IsExternal bool `json:"isExternal"`
 	// Relationships between the note and the linked target.
 	Rels []LinkRelation `json:"rels"`
+	// Byte offset of the first char of the link.
+	// -1 means the parser doesnt know, happens with frontmatter links and auto links.
+	LinkStart int `json:"linkStart"`
+	// Byte offset of the char after the last char of the link.
+	// (LinkStart and LinkEnd form an exclusive range.)
+	// -1 means the parser doesnt know, happens with frontmatter links and auto links.
+	LinkEnd int `json:"linkEnd"`
 	// Excerpt of the paragraph containing the note.
 	Snippet string `json:"snippet"`
 	// Start byte offset of the snippet in the note content.
