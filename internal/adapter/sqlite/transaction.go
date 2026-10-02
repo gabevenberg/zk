@@ -45,7 +45,7 @@ type TxFn func(tx Transaction) error
 
 // WithTransaction creates a new transaction and handles rollback/commit based
 // on the error object returned by the TxFn closure.
-func (db *DB) WithTransaction(fn TxFn) error {
+func (db *DB) WithTransaction(fn TxFn) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return err
