@@ -84,30 +84,11 @@ func (n *Notebook) Rename(opts RenameOpts) (RenamePlan, error) {
 	}
 
 	err = n.index.Commit(func(idx NoteIndex) error {
-		candidates, err := idx.FindMinimal(NoteFindOpts{
-			IncludeHrefs:      []string{renamePlan.OldPath},
-			AllowPartialHrefs: false,
-		})
+		toMove, err := findMoveSet(idx, renamePlan.OldPath, oldPathIsFile)
 		if err != nil {
 			return err
 		}
-		prefix := renamePlan.OldPath + string(filepath.Separator)
-		toMove := []MinimalNote{}
-		for _, candidate := range candidates {
-			if oldPathIsFile {
-				if candidate.Path == renamePlan.OldPath {
-					toMove = append(toMove, candidate)
-					break
-				}
-			} else {
-				if strings.HasPrefix(candidate.Path, prefix) {
-					toMove = append(toMove, candidate)
-				}
-			}
-		}
-		if len(toMove) == 0 {
-			return fmt.Errorf("%s: no indexed notes to move", renamePlan.OldPath)
-		}
+		_=toMove
 		return nil
 	})
 	if err != nil {
@@ -115,4 +96,32 @@ func (n *Notebook) Rename(opts RenameOpts) (RenamePlan, error) {
 	}
 	return renamePlan, nil
 
+}
+
+func findMoveSet(idx NoteIndex, oldPath string, oldPathIsFile bool) ([]MinimalNote, error) {
+	candidates, err := idx.FindMinimal(NoteFindOpts{
+		IncludeHrefs:      []string{oldPath},
+		AllowPartialHrefs: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	prefix := oldPath + string(filepath.Separator)
+	toMove := []MinimalNote{}
+	for _, candidate := range candidates {
+		if oldPathIsFile {
+			if candidate.Path == oldPath {
+				toMove = append(toMove, candidate)
+				break
+			}
+		} else {
+			if strings.HasPrefix(candidate.Path, prefix) {
+				toMove = append(toMove, candidate)
+			}
+		}
+	}
+	if len(toMove) == 0 {
+		return nil, fmt.Errorf("%s: no indexed notes to move", oldPath)
+	}
+	return toMove, nil
 }
