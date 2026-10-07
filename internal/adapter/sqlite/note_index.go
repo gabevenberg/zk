@@ -85,6 +85,15 @@ func (ni *NoteIndex) FindLinksBetweenNotes(ids []core.NoteID) (links []core.Reso
 	return
 }
 
+// FindLinksTouchingNotes implements core.NoteIndex.
+func (ni *NoteIndex) FindLinksTouchingNotes(ids []core.NoteID) (links []core.ResolvedLink, err error) {
+	err = ni.commit(func(dao *dao) error {
+		links, err = dao.links.FindTouchingNotes(ids)
+		return err
+	})
+	return
+}
+
 // FindCollections implements core.NoteIndex.
 func (ni *NoteIndex) FindCollections(kind core.CollectionKind, sorters []core.CollectionSorter) (collections []core.Collection, err error) {
 	err = ni.commit(func(dao *dao) error {

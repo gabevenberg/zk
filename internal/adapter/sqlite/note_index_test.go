@@ -28,6 +28,8 @@ func TestNoteIndexAddWithLinks(t *testing.T) {
 				Snippet:      "[Relative](f39c8) link",
 				SnippetStart: 50,
 				SnippetEnd:   100,
+				LinkStart:    5,
+				LinkEnd:      10,
 			},
 			{
 				Title: "Second is added",
@@ -66,6 +68,8 @@ func TestNoteIndexAddWithLinks(t *testing.T) {
 			Snippet:      "[Relative](f39c8) link",
 			SnippetStart: 50,
 			SnippetEnd:   100,
+			LinkStart:    5,
+			LinkEnd:      10,
 		},
 		{
 			SourceID: id,
@@ -104,11 +108,13 @@ func TestNoteIndexAddFillsLinksMissingTargetId(t *testing.T) {
 	rows := queryLinkRows(t, db.db, fmt.Sprintf("target_id = %d", id))
 	assert.Equal(t, rows, []linkRow{
 		{
-			SourceID: 3,
-			TargetID: &id,
-			Title:    "Missing target",
-			Href:     "missing",
-			Snippet:  "There's a Missing target",
+			SourceID:  3,
+			TargetID:  &id,
+			Title:     "Missing target",
+			Href:      "missing",
+			Snippet:   "There's a Missing target",
+			LinkStart: -1,
+			LinkEnd:   -1,
 		},
 	})
 }
@@ -119,11 +125,13 @@ func TestNoteIndexUpdateWithLinks(t *testing.T) {
 	links := queryLinkRows(t, db.db, "source_id = 1")
 	assert.Equal(t, links, []linkRow{
 		{
-			SourceID: 1,
-			TargetID: idPointer(2),
-			Title:    "An internal link",
-			Href:     "log/2021-01-04.md",
-			Snippet:  "[[An internal link]]",
+			SourceID:  1,
+			TargetID:  idPointer(2),
+			Title:     "An internal link",
+			Href:      "log/2021-01-04.md",
+			Snippet:   "[[An internal link]]",
+			LinkStart: -1,
+			LinkEnd:   -1,
 		},
 		{
 			SourceID:   1,
@@ -132,6 +140,8 @@ func TestNoteIndexUpdateWithLinks(t *testing.T) {
 			Href:       "https://domain.com",
 			IsExternal: true,
 			Snippet:    "[[An external link]]",
+			LinkStart:  -1,
+			LinkEnd:    -1,
 		},
 	})
 

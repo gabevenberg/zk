@@ -22,6 +22,9 @@ type NoteIndex interface {
 	// FindLinksBetweenNotes retrieves the links between the given notes.
 	FindLinksBetweenNotes(ids []NoteID) ([]ResolvedLink, error)
 
+	// FindLinksTouchingNotes retrieves links where either end (source OR target) of the link is in the given notes.
+	FindLinksTouchingNotes(ids []NoteID) ([]ResolvedLink, error)
+
 	// FindCollections retrieves all the collections of the given kind.
 	FindCollections(kind CollectionKind, sorters []CollectionSorter) ([]Collection, error)
 

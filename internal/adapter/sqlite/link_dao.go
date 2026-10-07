@@ -29,8 +29,8 @@ func NewLinkDAO(tx Transaction, logger util.Logger) *LinkDAO {
 
 		// Add a new link.
 		addLinkStmt: tx.PrepareLazy(`
-			INSERT INTO links (source_id, target_id, title, href, type, external, rels, snippet, snippet_start, snippet_end)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO links (source_id, target_id, title, href, type, external, rels, snippet, snippet_start, snippet_end, link_start, link_end)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`),
 
 		// Remove all the outbound links of a note.
@@ -53,7 +53,7 @@ func (d *LinkDAO) Add(links []core.ResolvedLink) error {
 		sourceID := noteIDToSQL(link.SourceID)
 		targetID := noteIDToSQL(link.TargetID)
 
-		_, err := d.addLinkStmt.Exec(sourceID, targetID, link.Title, link.Href, link.Type, link.IsExternal, joinLinkRels(link.Rels), link.Snippet, link.SnippetStart, link.SnippetEnd)
+		_, err := d.addLinkStmt.Exec(sourceID, targetID, link.Title, link.Href, link.Type, link.IsExternal, joinLinkRels(link.Rels), link.Snippet, link.SnippetStart, link.SnippetEnd, link.LinkStart, link.LinkEnd)
 		if err != nil {
 			return err
 		}
@@ -100,12 +100,18 @@ func (d *LinkDAO) FindBetweenNotes(ids []core.NoteID) ([]core.ResolvedLink, erro
 	return d.findWhere(fmt.Sprintf("source_id IN (%s) AND target_id IN (%s)", idsString, idsString))
 }
 
+// FindTouchingNotes retrieves links where either end (source OR target) of the link is in the given notes.
+func (d *LinkDAO) FindTouchingNotes(ids []core.NoteID) ([]core.ResolvedLink, error) {
+	idsString := joinNoteIDs(ids, ",")
+	return d.findWhere(fmt.Sprintf("source_id IN (%s) OR target_id IN (%s)", idsString, idsString))
+}
+
 // findWhere returns all the links, filtered by the given where query.
 func (d *LinkDAO) findWhere(where string) ([]core.ResolvedLink, error) {
 	links := make([]core.ResolvedLink, 0)
 
 	query := `
-		SELECT id, source_id, source_path, target_id, target_path, title, href, type, external, rels, snippet, snippet_start, snippet_end
+		SELECT id, source_id, source_path, target_id, target_path, title, href, type, external, rels, snippet, snippet_start, snippet_end, link_start, link_end
 		  FROM resolved_links
 	`
 
@@ -135,16 +141,16 @@ func (d *LinkDAO) findWhere(where string) ([]core.ResolvedLink, error) {
 
 func (d *LinkDAO) scanLink(row RowScanner) (*core.ResolvedLink, error) {
 	var (
-		id, sourceID, snippetStart, snippetEnd     int
-		targetID                                   sql.NullInt64
-		sourcePath, title, href, linkType, snippet string
-		external                                   bool
-		targetPath, rels                           sql.NullString
+		id, sourceID, snippetStart, snippetEnd, linkStart, linkEnd int
+		targetID                                                   sql.NullInt64
+		sourcePath, title, href, linkType, snippet                 string
+		external                                                   bool
+		targetPath, rels                                           sql.NullString
 	)
 
 	err := row.Scan(
 		&id, &sourceID, &sourcePath, &targetID, &targetPath, &title, &href,
-		&linkType, &external, &rels, &snippet, &snippetStart, &snippetEnd,
+		&linkType, &external, &rels, &snippet, &snippetStart, &snippetEnd, &linkStart, &linkEnd,
 	)
 	switch {
 	case err == sql.ErrNoRows:
@@ -159,16 +165,13 @@ func (d *LinkDAO) scanLink(row RowScanner) (*core.ResolvedLink, error) {
 			TargetID:   core.NoteID(targetID.Int64),
 			TargetPath: targetPath.String,
 			Link: core.Link{
-				Title:      title,
-				Href:       href,
-				Type:       core.LinkType(linkType),
-				IsExternal: external,
-				Rels:       core.LinkRels(parseListFromNullString(rels)...),
-				// TODO: we should eventually add this to the index,
-				// when something actually uses a LinkStart from the index.
-				// Currently LinkStart and LinkEnd are only used straight from the parser.
-				LinkStart:    -1,
-				LinkEnd:      -1,
+				Title:        title,
+				Href:         href,
+				Type:         core.LinkType(linkType),
+				IsExternal:   external,
+				Rels:         core.LinkRels(parseListFromNullString(rels)...),
+				LinkStart:    linkStart,
+				LinkEnd:      linkEnd,
 				Snippet:      snippet,
 				SnippetStart: snippetStart,
 				SnippetEnd:   snippetEnd,

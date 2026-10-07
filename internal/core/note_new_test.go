@@ -503,6 +503,9 @@ func (m *noteIndexAddMock) FindMinimal(opts NoteFindOpts) ([]MinimalNote, error)
 func (m *noteIndexAddMock) FindLinksBetweenNotes(ids []NoteID) ([]ResolvedLink, error) {
 	return nil, nil
 }
+func (m *noteIndexAddMock) FindLinksTouchingNotes(ids []NoteID) ([]ResolvedLink, error) {
+	return nil, nil
+}
 func (m *noteIndexAddMock) FindCollections(kind CollectionKind, sorters []CollectionSorter) ([]Collection, error) {
 	return nil, nil
 }

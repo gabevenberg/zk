@@ -96,7 +96,7 @@ func (n *Notebook) Rename(opts RenameOpts) (RenamePlan, error) {
 			return err
 		}
 
-		affectedLinks, err := n.findAffected(idx, toMove)
+		affectedLinks, err := findAffected(idx, toMove)
 		if err != nil {
 			return err
 		}
@@ -112,87 +112,39 @@ func (n *Notebook) Rename(opts RenameOpts) (RenamePlan, error) {
 
 }
 
-// resolveLink resolves a Link into a ResolvedLink by resolving its href.
-// Returns nil, nil if the link cannot be resolved to an internal note or does not have a valid offset.
-func resolveLink(idx NoteIndex, link Link, note MinimalNote) (*ResolvedLink, error) {
-	if link.IsExternal || link.LinkStart < 0 || link.LinkEnd < 0 {
-		return nil, nil
-	}
-	partial := link.Type == LinkTypeWikiLink
-	destNotes, err := idx.FindMinimal(NoteFindOpts{
-		IncludeHrefs:      []string{link.Href},
-		AllowPartialHrefs: partial,
-		Limit:             1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(destNotes) == 0 {
-		return nil, nil
-	}
-
-	// The LinkID is not filled in, as that would require a schema change and invasive changes in link_dao.go.
-	// Its also not needed, as LinkID is not used in renaming.
-	return &ResolvedLink{
-		Link:       link,
-		SourceID:   note.ID,
-		SourcePath: note.Path,
-		TargetID:   destNotes[0].ID,
-		TargetPath: destNotes[0].Path,
-	}, nil
-}
-
 // findAffected finds all ResolvedLinks that need to be changed,
 // grouped by the path for easy edit batching.
-// This is a separate step, as after the database repoint,
-// notes no longer resolve to their old hrefs.
-func (n *Notebook) findAffected(idx NoteIndex, movedNotes []MinimalNote) (map[string][]ResolvedLink, error) {
-	paths := make([]string, 0, len(movedNotes))
+// This is a separate step,
+// as a repoint alters SourcePath.
+func findAffected(idx NoteIndex, movedNotes []MinimalNote) (map[string][]ResolvedLink, error) {
+	ids := make([]NoteID, 0, len(movedNotes))
 	for _, note := range movedNotes {
-		paths = append(paths, note.Path)
+		ids = append(ids, note.ID)
 	}
-
-	candidates, err := idx.FindMinimal(NoteFindOpts{
-		LinkTo:            &LinkFilter{Hrefs: paths},
-		AllowPartialHrefs: false,
-	})
+	candidates, err := idx.FindLinksTouchingNotes(ids)
 	if err != nil {
 		return nil, err
 	}
-
 	// Moved notes have different rules for including in the rewrite set than notes outside the move.
 	movedSet := make(map[NoteID]struct{}, len(movedNotes))
-	// Dedup the candidates by path.
-	candidateSet := make(map[string]MinimalNote, len(candidates))
-	for _, note := range movedNotes {
-		candidateSet[note.Path] = note
-		movedSet[note.ID] = struct{}{}
-	}
-	for _, c := range candidates {
-		candidateSet[c.Path] = c
+	for _, id := range ids {
+		movedSet[id] = struct{}{}
 	}
 
 	affected := make(map[string][]ResolvedLink)
-	for _, candidate := range candidateSet {
-		parsedContent, err := n.ParseNoteAt(filepath.Join(n.Path, candidate.Path))
-		if err != nil {
-			return nil, err
+	for _, candidate := range candidates {
+		// check for links with invalid IDs (external/broken) or offsets.
+		if (!candidate.SourceID.IsValid() || !candidate.TargetID.IsValid()) || (candidate.LinkStart < 0 || candidate.LinkEnd < 0) {
+			continue
 		}
-		_, moved := movedSet[candidate.ID]
-		for _, link := range parsedContent.Links {
-			resolvedLink, err := resolveLink(idx, link, candidate)
-			if err != nil {
-				return nil, err
-			}
-			if resolvedLink == nil {
-				continue
-			}
-			_, resolvesToMoved := movedSet[resolvedLink.TargetID]
-			// links that point a note being moved always need to be rewritten.
-			// Markdown links in notes that are being moved may have relative paths that must be rewritten.
-			if resolvesToMoved || (moved && link.Type == LinkTypeMarkdown) {
-				affected[candidate.Path] = append(affected[candidate.Path], *resolvedLink)
-			}
+
+		_, moved := movedSet[candidate.SourceID]
+		_, targetsMoved := movedSet[candidate.TargetID]
+
+		// links that point a note being moved always need to be rewritten.
+		// Markdown links in notes that are being moved may have relative paths that must be rewritten.
+		if targetsMoved || (moved && candidate.Type == LinkTypeMarkdown) {
+			affected[candidate.SourcePath] = append(affected[candidate.SourcePath], candidate)
 		}
 	}
 	return affected, nil

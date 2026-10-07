@@ -224,6 +224,15 @@ func (db *DB) migrate() error {
 				},
 				NeedsReindexing: true,
 			},
+
+			{ // 9
+				SQL: []string{
+					// Add link's start and end offsets to `links`
+					`ALTER TABLE links ADD COLUMN link_start INTEGER DEFAULT(-1) NOT NULL`,
+					`ALTER TABLE links ADD COLUMN link_end INTEGER DEFAULT(-1) NOT NULL`,
+				},
+				NeedsReindexing: true,
+			},
 		}
 
 		needsReindexing := false
