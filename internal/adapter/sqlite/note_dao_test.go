@@ -186,6 +186,32 @@ func TestNoteDAOUpdateUnknown(t *testing.T) {
 	})
 }
 
+func TestNoteDAOUpdatePath(t *testing.T) {
+	testNoteDAO(t, func(tx Transaction, dao *NoteDAO) {
+		err := dao.UpdatePath(core.NoteID(6), "ref/test/z.md")
+		assert.Nil(t, err)
+
+		var path, filename, sortablePath string
+
+		err = tx.QueryRow(`
+			SELECT path, sortable_path, filename
+			  FROM notes
+			 WHERE id = ?
+		`, 6).Scan(&path, &sortablePath, &filename)
+		assert.Nil(t, err)
+		assert.Equal(t, path, "ref/test/z.md")
+		assert.Equal(t, sortablePath, "ref\x01test\x01z.md")
+		assert.Equal(t, filename, "z.md")
+	})
+}
+
+func TestNoteDAOUpdatePathUnknown(t *testing.T) {
+	testNoteDAO(t, func(tx Transaction, dao *NoteDAO) {
+		err := dao.UpdatePath(999999, "ref/test/z.md")
+		assert.Err(t, err, "note not found in the index")
+	})
+}
+
 func TestNoteDAORemove(t *testing.T) {
 	testNoteDAO(t, func(tx Transaction, dao *NoteDAO) {
 		_, err := queryNoteRow(tx, `path = "ref/test/a.md"`)

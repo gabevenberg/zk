@@ -157,6 +157,13 @@ func (ni *NoteIndex) BatchUpdateLinks(ids []core.NoteID, paths []string) error {
 	})
 }
 
+// UpdatePath updates the path (and its derivative fields) of a note.
+func (ni *NoteIndex) UpdatePath(id core.NoteID, newPath string) error {
+	return ni.commit(func(dao *dao) error {
+		return dao.notes.UpdatePath(id, newPath)
+	})
+}
+
 func (ni *NoteIndex) batchFixExistingLinks(dao *dao, ids []core.NoteID, paths []string) error {
 	links, err := dao.links.FindInternal()
 	if err != nil || len(links) == 0 {

@@ -33,6 +33,7 @@ type NoteDAO struct {
 	findIDsByPathLikeStmt     *LazyStmt
 	findIDsByPathPrefixStmt   *LazyStmt
 	findByIDStmt              *LazyStmt
+	updatePathStmt            *LazyStmt
 }
 
 // NewNoteDAO creates a new instance of a DAO working on the given database
@@ -100,6 +101,12 @@ func NewNoteDAO(tx Transaction, logger util.Logger, extension string) *NoteDAO {
 		findByIDStmt: tx.PrepareLazy(`
 			SELECT id, path, title, lead, body, raw_content, word_count, created, modified, metadata, checksum, tags, lead AS snippet
 			  FROM notes_with_metadata
+			 WHERE id = ?
+		`),
+		// Update the path of a note.
+		updatePathStmt: tx.PrepareLazy(`
+			UPDATE notes
+			   SET path = ?, filename = ?, sortable_path = ?
 			 WHERE id = ?
 		`),
 	}
@@ -187,6 +194,27 @@ func (d *NoteDAO) Update(note core.Note) (core.NoteID, error) {
 		metadata, note.Checksum, note.Modified, note.Path,
 	)
 	return id, err
+}
+
+// UpdatePath modifies an existing note's path.
+func (d *NoteDAO) UpdatePath(id core.NoteID, newPath string) error {
+	if !id.IsValid() {
+		return errors.New("invalid note ID")
+	}
+	sortablePath := strings.ReplaceAll(newPath, "/", "\x01")
+	filename := filepath.Base(newPath)
+	res, err := d.updatePathStmt.Exec(newPath, filename, sortablePath, id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected < 1 {
+		return errors.New("note not found in the index")
+	}
+	return nil
 }
 
 func (d *NoteDAO) metadataToJSON(note core.Note) string {

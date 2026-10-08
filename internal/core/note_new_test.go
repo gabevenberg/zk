@@ -514,6 +514,7 @@ func (m *noteIndexAddMock) Add(note Note, fixLinks bool) (NoteID, error)        
 func (m *noteIndexAddMock) Update(note Note) error                              { return nil }
 func (m *noteIndexAddMock) Remove(path string) error                            { return nil }
 func (m *noteIndexAddMock) BatchUpdateLinks(ids []NoteID, paths []string) error { return nil }
+func (m *noteIndexAddMock) UpdatePath(id NoteID, newPath string) error          { return nil }
 func (m *noteIndexAddMock) Commit(transaction func(idx NoteIndex) error) error  { return nil }
 func (m *noteIndexAddMock) NeedsReindexing() (bool, error)                      { return false, nil }
 func (m *noteIndexAddMock) SetNeedsReindexing(needsReindexing bool) error       { return nil }

@@ -39,6 +39,9 @@ type NoteIndex interface {
 	// BatchUpdateLinks updates the links to existing notes
 	BatchUpdateLinks(ids []NoteID, paths []string) error
 
+	// UpdatePath updates the path to an existing note
+	UpdatePath(id NoteID, newPath string) error
+
 	// Commit performs a set of operations atomically.
 	Commit(transaction func(idx NoteIndex) error) error
 
